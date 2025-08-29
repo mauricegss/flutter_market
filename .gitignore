@@ -1,45 +1,53 @@
-# Miscellaneous
+# Ficheiros e pastas genéricos de vários sistemas e editores.
 *.class
 *.log
 *.pyc
 *.swp
 .DS_Store
 .atom/
-.build/
 .buildlog/
 .history
 .svn/
 .swiftpm/
 migrate_working_dir/
 
-# IntelliJ related
+# Ficheiros de configuração do IntelliJ e Android Studio.
 *.iml
 *.ipr
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
+# A pasta .vscode pode conter configurações úteis do projeto.
+# Deixe comentado se quiser partilhar as configurações de launch e tasks.
 #.vscode/
 
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
+# Ficheiros gerados e cache do Flutter, Dart e Pub. Essencial ignorar.
 .dart_tool/
+.packages
+.flutter-plugins
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
+**/doc/api/
+**/ios/Flutter/.last_build_id
+
+# Ficheiro gerado para projetos Web.
+lib/generated_plugin_registrant.dart
+
+# Pasta de compilação principal do Flutter. Contém o seu .apk, .ipa, etc.
 /build/
+
+# Pasta de relatórios de cobertura de testes.
 /coverage/
 
-# Symbolication related
+# Ficheiros de simbolização para análise de crashes (gerados na compilação).
 app.*.symbols
 
-# Obfuscation related
+# Ficheiros de mapeamento para ofuscação de código (gerados na compilação).
 app.*.map.json
 
-# Android Studio will place build artifacts here
+# Pastas de compilação específicas do Android Studio.
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/build/
