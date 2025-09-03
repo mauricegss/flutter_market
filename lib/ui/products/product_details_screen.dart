@@ -1,9 +1,9 @@
-// lib/ui/details/product_details_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_market/domain/models/product.dart';
+import 'package:flutter_market/domain/repositories/cart_repository.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 class ProductDetailsPage extends StatefulWidget {
   final Product produto;
@@ -17,17 +17,23 @@ class ProductDetailsPage extends StatefulWidget {
 class _ProductDetailsPageState extends State<ProductDetailsPage> {
   NumberFormat real = NumberFormat.currency(locale: 'pt_BR', name: 'R\$');
   final _form = GlobalKey<FormState>();
-  final _quantidadeController = TextEditingController();
+  final _quantidadeController = TextEditingController(text: '1');
   double totalPagar = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    totalPagar = widget.produto.price;
+  }
+  
   void adicionarAoCarrinho() {
     if (_form.currentState!.validate()) {
-      // Aqui iria a lógica para adicionar ao carrinho de verdade
+      final quantity = int.parse(_quantidadeController.text);
       
-      // Volta para a tela anterior
+      context.read<CartRepository>().addToCart(widget.produto, quantity);
+
       Navigator.pop(context);
 
-      // Mostra uma mensagem de sucesso
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Produto adicionado ao carrinho!')),
       );
@@ -44,7 +50,6 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            // Mostra o nome e o preço do produto
             Padding(
               padding: const EdgeInsets.only(bottom: 24.0),
               child: Row(
@@ -62,8 +67,6 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 ],
               ),
             ),
-
-            // Mostra o total a pagar, se a quantidade for > 0
             if (totalPagar > 0)
               Container(
                 margin: EdgeInsets.only(bottom: 24),
@@ -73,7 +76,6 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 ),
               ),
 
-            // Formulário para digitar a quantidade
             Form(
               key: _form,
               child: TextFormField(
@@ -105,7 +107,6 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
               ),
             ),
             
-            // Botão para adicionar ao carrinho
             Container(
               alignment: Alignment.bottomCenter,
               margin: EdgeInsets.only(top: 24),

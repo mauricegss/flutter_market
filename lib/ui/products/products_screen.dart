@@ -1,15 +1,12 @@
-// lib/ui/products/products_screen.dart
-
 import 'package:flutter/material.dart';
-// NOVO: Importando o modelo de produto e o formatador de moeda.
+import 'package:flutter/services.dart';
+import 'package:flutter_market/configs/app_routes.dart';
 import 'package:flutter_market/domain/models/product.dart';
-import 'package:flutter_market/domain/repositories/products_repository.dart';
+import 'package:flutter_market/domain/repositories/cart_repository.dart';
+import 'package:flutter_market/ui/products/products_view_model.dart';
 import 'package:intl/intl.dart';
-// NOVO: Importaremos a página de detalhes no próximo passo.
-import 'package:flutter_market/ui/products/product_details_screen.dart';
+import 'package:provider/provider.dart';
 
-
-// MUDANÇA: Convertemos de StatelessWidget para StatefulWidget
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
 
@@ -18,134 +15,194 @@ class ProductsScreen extends StatefulWidget {
 }
 
 class _ProductsScreenState extends State<ProductsScreen> {
-  // Puxando a lista de produtos do nosso "repositório"
-  final tabela = ProductRepository.tabela;
-  
-  // NOVO: Lista para guardar os produtos que o usuário selecionar.
-  List<Product> selecionadas = [];
-  
-  // NOVO: Instância do formatador de moeda, igual ao app do professor.
-  NumberFormat real = NumberFormat.currency(locale: 'pt_BR', name: 'R\$');
-  
-  // NOVO: Função que cria a AppBar dinâmica.
-  // Ela verifica se a lista "selecionadas" está vazia e mostra uma AppBar diferente.
-  AppBar appBarDinamica() {
-    if (selecionadas.isEmpty) {
-      // Estado normal: Nenhum item selecionado
-      return AppBar(
-        title: Text('Listinha'),
-        // ADICIONAMOS DE VOLTA O SEU CÓDIGO ORIGINAL AQUI:
-        leading: Transform.scale(
-          scale: 0.75,
-          child: CircleAvatar(
-            // Você precisa importar o seu arquivo de constantes para a variável funcionar
-            // ou colocar o caminho direto como no exemplo abaixo.
-            backgroundImage: AssetImage('assets/images.jpg'), 
-          ),
-        ),
-        actions: [
-          IconButton(
-            onPressed: () {
-              // Coloque a ação do seu carrinho aqui
-            },
-            icon: Icon(Icons.shopping_cart),
-          ),
-        ],
-      );
-    } else {
-      // Estado de seleção: Itens selecionados
-      return AppBar(
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () {
-            // Limpa a seleção e redesenha a tela
-            setState(() {
-              selecionadas = [];
-            });
-          },
-        ),
-        title: Text('${selecionadas.length} selecionados'),
-        backgroundColor: Colors.blueGrey.shade800,
-      );
-    }
+  final NumberFormat real = NumberFormat.currency(locale: 'pt_BR', name: 'R\$');
+
+  @override
+  void initState() {
+    super.initState();
+    // Pede ao ViewModel para carregar os produtos assim que a tela for construída
+    // Usamos listen: false aqui porque isso é uma ação, não precisa reconstruir o widget.
+    Provider.of<ProductsViewModel>(context, listen: false).loadProducts();
   }
 
-  // NOVO: Função para navegar para a tela de detalhes.
-  // Iremos criar essa tela no próximo passo.
-  mostrarDetalhes(Product produto) {
-    Navigator.push(
+  void _mostrarDetalhes(Product produto) {
+    // A navegação agora usa a rota nomeada
+    Navigator.pushNamed(
       context,
-      MaterialPageRoute(
-        builder: (_) => ProductDetailsPage(produto: produto),
-      ),
+      AppRoutes.productDetails,
+      arguments: produto, // Passando o produto como argumento
+    );
+  }
+
+  void _showAddProductDialog() {
+    final formKey = GlobalKey<FormState>();
+    final nameController = TextEditingController();
+    final priceController = TextEditingController();
+    // Pega o ViewModel uma única vez, pois só vamos chamar uma função
+    final viewModel = context.read<ProductsViewModel>();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Adicionar Novo Produto'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Nome do Produto'),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Por favor, insira um nome.';
+                    }
+                    return null;
+                  },
+                ),
+                TextFormField(
+                  controller: priceController,
+                  decoration: const InputDecoration(labelText: 'Preço'),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                  ],
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Por favor, insira um preço.';
+                    }
+                    if (double.tryParse(value) == null) {
+                      return 'Por favor, insira um número válido.';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  final newProduct = Product(
+                    name: nameController.text,
+                    price: double.parse(priceController.text),
+                  );
+                  // A tela agora só precisa chamar o método do ViewModel!
+                  // Não precisa mais de setState.
+                  viewModel.addProduct(newProduct);
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Adicionar'),
+            ),
+          ],
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    // Assiste ao ViewModel e ao Cart para reconstruir a tela quando eles mudarem
+    final viewModel = context.watch<ProductsViewModel>();
+    final cart = context.watch<CartRepository>();
+
     return Scaffold(
-      // MUDANÇA: A AppBar agora é criada pela nossa função dinâmica.
-      appBar: appBarDinamica(),
-      body: ListView.separated(
-        itemCount: tabela.length,
-        separatorBuilder: (context, index) => Divider(color: Colors.grey[800]),
-        itemBuilder: (context, index) {
-          final produto = tabela[index];
-          return ListTile(
-            // NOVO: Lógica para mostrar um check se o item estiver selecionado.
-            leading: selecionadas.contains(produto)
-                ? CircleAvatar(
-                    child: Icon(Icons.check),
-                  )
-                : CircleAvatar( // Um ícone padrão para o produto
-                    child: Icon(Icons.shopping_basket_outlined), 
-                    backgroundColor: Colors.cyan,
-                  ),
-            title: Text(
-              produto.name,
-              style: TextStyle(fontSize: 20),
-            ),
-            trailing: Text(
-              // MUDANÇA: Usando o formatador de moeda.
-              real.format(produto.price),
-              style: TextStyle(fontSize: 15),
-            ),
-            // NOVO: Propriedades para o visual de seleção.
-            selected: selecionadas.contains(produto),
-            selectedTileColor: Colors.cyan.withAlpha(55),
-            
-            // NOVO: Ação de clique longo para selecionar/desselecionar.
-            onLongPress: () {
-              setState(() {
-                if (selecionadas.contains(produto)) {
-                  selecionadas.remove(produto);
-                } else {
-                  selecionadas.add(produto);
-                }
-              });
-            },
-            
-            // NOVO: Ação de clique normal para ver detalhes.
-            onTap: () => mostrarDetalhes(produto),
-          );
-        },
-      ),
-      
-      // NOVO: O botão flutuante agora só aparece se houver itens selecionados.
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: selecionadas.isNotEmpty
-          ? FloatingActionButton.extended(
-              onPressed: () {},
-              icon: Icon(Icons.add_shopping_cart),
-              label: Text(
-                'ADICIONAR AO CARRINHO',
-                style: TextStyle(
-                  letterSpacing: 0,
-                  fontWeight: FontWeight.bold,
-                ),
+      appBar: AppBar(
+        title: const Text('Listinha'),
+        leading: Transform.scale(
+          scale: 0.75,
+          child: CircleAvatar(
+            backgroundImage: AssetImage('assets/images.jpg'),
+          ),
+        ),
+        actions: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                onPressed: () {},
+                icon: const Icon(Icons.shopping_cart),
               ),
-            )
-          : null, // Se a lista de selecionadas for vazia, o botão some.
+              if (cart.totalItems > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      '${cart.totalItems}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+      // Mostra um indicador de carregamento enquanto os dados não chegam
+      body: !viewModel.isLoaded
+          ? const Center(child: CircularProgressIndicator())
+          : ListView.separated(
+              itemCount: viewModel.products.length, // Usa a lista do ViewModel
+              separatorBuilder: (context, index) =>
+                  Divider(color: Colors.grey[800]),
+              itemBuilder: (context, index) {
+                final produto =
+                    viewModel.products[index]; // Pega o produto do ViewModel
+                return ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Colors.cyan,
+                    child: Icon(Icons.shopping_basket_outlined),
+                  ),
+                  title: Text(
+                    produto.name,
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: Text(
+                    real.format(produto.price),
+                    style: const TextStyle(fontSize: 15),
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.add_shopping_cart_outlined),
+                    onPressed: () {
+                      context.read<CartRepository>().addToCart(produto, 1);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content:
+                              Text('${produto.name} adicionado ao carrinho!'),
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                  ),
+                  onTap: () => _mostrarDetalhes(produto),
+                );
+              },
+            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddProductDialog,
+        child: const Icon(Icons.add),
+      ),
     );
   }
 }
